@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Compartilhada</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: linear-gradient(135deg, #0f0f1a 0%, #1a1030 50%, #0d1a2a 100%); min-height: 100vh; font-family: Georgia, 'Times New Roman', serif; color: #e8e0f0; }
+  input[type=date]::-webkit-calendar-picker-indicator,
+  input[type=time]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+  button:hover { opacity: 0.85; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.4); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const initialAppointments = [
+  { id: 1, name: "Washington Petrópolis", date: "2026-02-27", time: "09:00", local: "QG", confirmed: true },
+  { id: 2, name: "David Valença", date: "2026-02-27", time: "14:00", local: "QG", confirmed: true },
+  { id: 3, name: "Deyvid Motta", date: "2026-02-27", time: "16:00", local: "QG", confirmed: true },
+  { id: 4, name: "Selma Protetora Magé e Angel Jornal Mensageiro", date: "2026-02-27", time: "17:00", local: "QG", confirmed: true },
+  { id: 5, name: "Valmir", date: "2026-02-27", time: "18:00", local: "QG", confirmed: true },
+  { id: 6, name: "Paulo Ferreira Amigo Rogerinho", date: "2026-02-27", time: "19:00", local: "", confirmed: true },
+  { id: 7, name: "Celinho", date: "2026-02-27", time: "19:30", local: "QG", confirmed: true },
+  { id: 8, name: "Luiza - Antônio Galáctico", date: "2026-02-27", time: "20:00", local: "QG", confirmed: true },
+];
+
+const STORAGE_KEY = "agenda-compartilhada-v1";
+
+function App() {
+  const [appointments, setAppointments] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : initialAppointments;
+    } catch { return initialAppointments; }
+  });
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ name: "", date: "2026-02-27", time: "", local: "QG", confirmed: true });
+  const [filterDate, setFilterDate] = useState("2026-02-27");
+  const [saveStatus, setSaveStatus] = useState("");
+
+  function saveData(data) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      setSaveStatus("✓ Salvo");
+      setTimeout(() => setSaveStatus(""), 2000);
+    } catch { setSaveStatus("Erro ao salvar"); }
+  }
+
+  function openAdd() {
+    setForm({ name: "", date: filterDate || "2026-02-27", time: "", local: "QG", confirmed: false });
+    setEditingId(null);
+    setShowForm(true);
+  }
+
+  function openEdit(apt) {
+    setForm({ name: apt.name, date: apt.date, time: apt.time, local: apt.local, confirmed: apt.confirmed });
+    setEditingId(apt.id);
+    setShowForm(true);
+  }
+
+  function handleSave() {
+    if (!form.name || !form.date || !form.time) {
+      alert("Preencha Nome, Data e Horário.");
+      return;
+    }
+    let updated;
+    if (editingId) {
+      updated = appointments.map(a => a.id === editingId ? { ...a, ...form } : a);
+    } else {
+      const newId = Math.max(0, ...appointments.map(a => a.id)) + 1;
+      updated = [...appointments, { id: newId, ...form }];
+    }
+    updated = updated.sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+    setAppointments(updated);
+    saveData(updated);
+    setShowForm(false);
+  }
+
+  function handleDelete(id) {
+    if (!confirm("Excluir este compromisso?")) return;
+    const updated = appointments.filter(a => a.id !== id);
+    setAppointments(updated);
+    saveData(updated);
+  }
+
+  function toggleConfirm(id) {
+    const updated = appointments.map(a => a.id === id ? { ...a, confirmed: !a.confirmed } : a);
+    setAppointments(updated);
+    saveData(updated);
+  }
+
+  function exportICS() {
+    const toICS = (d, t) => `${d.replace(/-/g,'')}T${t.replace(':','')}00`;
+    let ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Agenda//PT\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n`;
+    appointments.forEach(a => {
+      const end = (() => {
+        const [h, m] = a.time.split(':').map(Number);
+        const total = h * 60 + m + 60;
+        return `${a.date.replace(/-/g,'')}T${String(Math.floor(total/60)).padStart(2,'0')}${String(total%60).padStart(2,'0')}00`;
+      })();
+      ics += `BEGIN:VEVENT\nUID:${a.id}-${Date.now()}@agenda\nSUMMARY:${a.name}\nDTSTART;TZID=America/Sao_Paulo:${toICS(a.date,a.time)}\nDTEND;TZID=America/Sao_Paulo:${end}\n${a.local ? `LOCATION:${a.local}\n` : ''}STATUS:${a.confirmed?'CONFIRMED':'TENTATIVE'}\nEND:VEVENT\n`;
+    });
+    ics += `END:VCALENDAR`;
+    const blob = new Blob([ics], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'agenda.ics'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const filtered = appointments.filter(a => !filterDate || a.date === filterDate);
+  const dates = [...new Set(appointments.map(a => a.date))].sort();
+
+  function getDayName(d) {
+    return new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long" });
+  }
+  function formatDate(d) {
+    const [y, m, day] = d.split("-"); return `${day}/${m}`;
+  }
+
+  const S = {
+    header: { background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 },
+    btn: { background: "linear-gradient(135deg, #7c3aed, #4f46e5)", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
+    btnGhost: { background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "9px 18px", color: "#a78bfa", fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
+    input: { width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "10px 12px", color: "#f0e8ff", fontSize: 14, fontFamily: "inherit" },
+    label: { fontSize: 11, letterSpacing: 2, color: "#7c6a9a", textTransform: "uppercase", display: "block", marginBottom: 6 },
+  };
+
+  return (
+    <div style={{ minHeight: "100vh" }}>
+      {/* Header */}
+      <div style={S.header}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 4, color: "#a78bfa", textTransform: "uppercase", marginBottom: 4 }}>Agenda Compartilhada</div>
+          <h1 style={{ fontSize: 26, fontWeight: "normal", color: "#f0e8ff", letterSpacing: 1 }}>Agenda Oficial Marcos Tavares</h1>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {saveStatus && <span style={{ fontSize: 13, color: "#4ade80" }}>{saveStatus}</span>}
+          <button onClick={exportICS} style={S.btnGhost}>⬇ Exportar .ICS</button>
+          <button onClick={openAdd} style={S.btn}>+ Novo</button>
+        </div>
+      </div>
+
+      {/* Date Tabs */}
+      <div style={{ padding: "14px 24px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={() => setFilterDate("")} style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", background: !filterDate ? "#7c3aed" : "transparent", color: !filterDate ? "#fff" : "#a78bfa", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>Todos</button>
+        {dates.map(d => (
+          <button key={d} onClick={() => setFilterDate(d)} style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", background: filterDate === d ? "#7c3aed" : "transparent", color: filterDate === d ? "#fff" : "#a78bfa", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+            {formatDate(d)} — {getDayName(d)}
+          </button>
+        ))}
+      </div>
+
+      {/* List */}
+      <div style={{ padding: "4px 24px 40px" }}>
+        {filterDate && (
+          <div style={{ marginBottom: 16, fontSize: 12, letterSpacing: 3, color: "#7c3aed", textTransform: "uppercase" }}>
+            {formatDate(filterDate)} · {getDayName(filterDate)} · {filtered.length} compromissos
+          </div>
+        )}
+        <div style={{ display: "grid", gap: 10 }}>
+          {filtered.length === 0 && <div style={{ textAlign: "center", padding: 50, color: "#555" }}>Nenhum compromisso</div>}
+          {filtered.map((apt, i) => (
+            <div key={apt.id} style={{
+              background: apt.confirmed ? "rgba(124,58,237,0.08)" : "rgba(255,255,255,0.03)",
+              border: `1px solid ${apt.confirmed ? "rgba(124,58,237,0.3)" : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 12, padding: "14px 18px",
+              display: "flex", alignItems: "center", gap: 14,
+              animation: `fadeIn 0.3s ease ${i * 0.04}s both`
+            }}>
+              <div style={{ minWidth: 56, textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: "bold", color: apt.confirmed ? "#c4b5fd" : "#555", letterSpacing: 1 }}>{apt.time}</div>
+                {!filterDate && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{formatDate(apt.date)}</div>}
+              </div>
+              <div style={{ width: 2, height: 36, background: apt.confirmed ? "rgba(124,58,237,0.5)" : "rgba(255,255,255,0.1)", borderRadius: 2 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, color: apt.confirmed ? "#f0e8ff" : "#777", fontWeight: apt.confirmed ? "bold" : "normal" }}>{apt.name}</div>
+                {apt.local && <div style={{ fontSize: 11, color: "#7c6a9a", marginTop: 3 }}>📍 {apt.local}</div>}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => toggleConfirm(apt.id)} title={apt.confirmed ? "Desmarcar" : "Confirmar"} style={{ width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", background: apt.confirmed ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.06)", fontSize: 15 }}>
+                  {apt.confirmed ? "✅" : "⬜"}
+                </button>
+                <button onClick={() => openEdit(apt)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", background: "rgba(255,255,255,0.06)", fontSize: 14 }}>✏️</button>
+                <button onClick={() => handleDelete(apt.id)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", background: "rgba(239,68,68,0.1)", fontSize: 14 }}>🗑️</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal */}
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
+          <div style={{ background: "#1a1030", border: "1px solid rgba(124,58,237,0.3)", borderRadius: 16, padding: 26, width: "100%", maxWidth: 420 }}>
+            <h2 style={{ marginBottom: 20, fontSize: 17, color: "#c4b5fd", fontWeight: "normal", letterSpacing: 1 }}>
+              {editingId ? "Editar Compromisso" : "Novo Compromisso"}
+            </h2>
+            <div style={{ display: "grid", gap: 14 }}>
+              {[
+                { label: "Nome / Compromisso", key: "name", type: "text", placeholder: "Nome ou descrição" },
+                { label: "Data", key: "date", type: "date" },
+                { label: "Horário", key: "time", type: "time" },
+                { label: "Local", key: "local", type: "text", placeholder: "Ex: QG" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={S.label}>{f.label}</label>
+                  <input type={f.type} value={form[f.key]} placeholder={f.placeholder || ""} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={S.input} />
+                </div>
+              ))}
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "#c4b5fd" }}>
+                <input type="checkbox" checked={form.confirmed} onChange={e => setForm(p => ({ ...p, confirmed: e.target.checked }))} />
+                Confirmado
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "#888", cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+              <button onClick={handleSave} style={{ flex: 2, padding: "10px", background: "linear-gradient(135deg, #7c3aed, #4f46e5)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontFamily: "inherit", fontSize: 14 }}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
