@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agenda MT">
+<meta name="theme-color" content="#0a0a14">
+<title>Agenda Oficial Marcos Tavares</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: #0a0a14;
+    min-height: 100vh;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    color: #e8e0f0;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(88,28,135,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(30,58,138,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(67,20,90,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #root { position: relative; z-index: 1; }
+
+  input, button, select { -webkit-appearance: none; appearance: none; font-family: inherit; }
+  input[type=date]::-webkit-calendar-picker-indicator,
+  input[type=time]::-webkit-calendar-picker-indicator { filter: invert(0.55) sepia(0.3) hue-rotate(240deg); cursor: pointer; }
+  button { cursor: pointer; transition: opacity 0.15s, transform 0.1s, background 0.2s; }
+  button:active { transform: scale(0.96); opacity: 0.8; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: none; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.35); border-radius: 2px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .tabs-scroll {
+    display: flex; gap: 8px;
+    overflow-x: auto; padding: 14px 20px 10px;
+    scrollbar-width: none;
+  }
+  .tabs-scroll::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    padding: 7px 16px; border-radius: 30px;
+    border: 1px solid rgba(139,92,246,0.2);
+    background: transparent; color: #9d7ec7;
+    font-size: 12px; font-family: 'DM Sans', sans-serif;
+    white-space: nowrap; flex-shrink: 0;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { border-color: rgba(139,92,246,0.4); color: #c4b5fd; }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #7c3aed, #4338ca);
+    border-color: transparent; color: #fff;
+    box-shadow: 0 0 20px rgba(124,58,237,0.3);
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 200; backdrop-filter: blur(8px);
+  }
+  @media (min-width: 640px) {
+    .modal-overlay { align-items: center; }
+    .modal-box { border-radius: 20px !important; max-width: 460px !important; }
+  }
+  .modal-box {
+    background: #110d1e;
+    border: 1px solid rgba(139,92,246,0.25);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    padding: 6px 22px 36px;
+    width: 100%; max-width: 100%;
+    max-height: 94vh; overflow-y: auto;
+    animation: slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+  }
+  @media (min-width: 640px) {
+    .modal-box { border-bottom: 1px solid rgba(139,92,246,0.25) !important; padding: 22px 24px 26px !important; }
+    .modal-handle { display: none !important; }
+  }
+  .modal-handle {
+    width: 38px; height: 4px; background: rgba(255,255,255,0.15);
+    border-radius: 2px; margin: 14px auto 20px;
+  }
+
+  .field-input {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #f0e8ff;
+    font-size: 15px;
+    transition: border-color 0.2s, background 0.2s;
+    outline: none;
+  }
+  .field-input:focus {
+    border-color: rgba(139,92,246,0.55);
+    background: rgba(139,92,246,0.06);
+  }
+  .field-input::placeholder { color: rgba(255,255,255,0.22); }
+  .field-label {
+    font-size: 10px; letter-spacing: 2.5px; color: #6b5a85;
+    text-transform: uppercase; display: block; margin-bottom: 7px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .apt-card {
+    border-radius: 16px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 14;
+    border: 1px solid;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .apt-card::before {
+    content: ''; position: absolute;
+    left: 0; top: 0; bottom: 0; width: 3px;
+    border-radius: 3px 0 0 3px;
+  }
+  .apt-card.confirmed {
+    background: rgba(124,58,237,0.07);
+    border-color: rgba(124,58,237,0.22);
+  }
+  .apt-card.confirmed::before { background: linear-gradient(to bottom, #7c3aed, #4338ca); }
+  .apt-card.unconfirmed {
+    background: rgba(255,255,255,0.025);
+    border-color: rgba(255,255,255,0.07);
+  }
+  .apt-card.unconfirmed::before { background: rgba(255,255,255,0.1); }
+
+  .btn-icon {
+    width: 34px; height: 34px; border-radius: 9px; border: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn-icon:hover { opacity: 0.9; }
+
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    padding: 11px 22px; border-radius: 30px; font-size: 13px;
+    letter-spacing: 0.3px; z-index: 999;
+    backdrop-filter: blur(12px); animation: slideUp 0.3s ease;
+    white-space: nowrap; font-family: 'DM Sans', sans-serif;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  .toast.ok  { background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3); color: #4ade80; }
+  .toast.err { background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.3);  color: #f87171; }
+  .toast.inf { background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.4); color: #c4b5fd; }
+
+  .sync-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .sync-dot.ok      { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+  .sync-dot.loading { background: #a78bfa; animation: pulse 1.2s infinite; }
+  .sync-dot.err     { background: #f87171; }
+
+  .header-section {
+    background: linear-gradient(180deg, rgba(124,58,237,0.08) 0%, transparent 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 18px 20px 16px;
+    padding-top: calc(18px + env(safe-area-inset-top, 0px));
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #4338ca);
+    border: none; border-radius: 10px;
+    padding: 9px 18px; color: #fff;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.3px;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.3);
+    transition: box-shadow 0.2s, transform 0.1s;
+  }
+  .btn-primary:hover { box-shadow: 0 6px 22px rgba(124,58,237,0.45); }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(139,92,246,0.25);
+    border-radius: 10px;
+    padding: 9px 14px; color: #9d7ec7;
+    font-size: 12px; letter-spacing: 0.3px;
+  }
+  .btn-ghost:hover { border-color: rgba(139,92,246,0.5); color: #c4b5fd; }
+
+  .loading-screen {
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; flex-direction: column; gap: 18px;
+  }
+  .loading-ring {
+    width: 42px; height: 42px; border-radius: 50%;
+    border: 2px solid rgba(124,58,237,0.15);
+    border-top-color: #7c3aed;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .count-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(124,58,237,0.25); border-radius: 20px;
+    padding: 1px 8px; font-size: 11px; color: #c4b5fd;
+    margin-left: 6px; vertical-align: middle;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .section-label {
+    padding: 6px 20px 12px;
+    font-size: 10px; letter-spacing: 3px; color: #5c4a75;
+    text-transform: uppercase; font-family: 'DM Sans', sans-serif;
+  }
+
+  .empty-state {
+    text-align: center; padding: 64px 28px;
+    animation: fadeIn 0.4s ease;
+  }
+  .empty-icon {
+    font-size: 44px; margin-bottom: 14px; opacity: 0.6;
+    animation: fadeIn 0.5s ease 0.1s both;
+  }
+
+  .divider { width: 2px; flex-shrink: 0; border-radius: 2px; }
+
+  /* Checkbox custom */
+  .checkbox-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; background: rgba(255,255,255,0.03);
+    border-radius: 12px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.2s;
+  }
+  .checkbox-row:hover { background: rgba(124,58,237,0.06); }
+  .checkbox-row input[type=checkbox] { width: 18px; height: 18px; accent-color: #7c3aed; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const API_KEY   = "$2a$10$4Jqh1NmW33nGeieOI3oTpOKr1c.tMqfA97IJfm4.VhoINoeV/ESim";
+const BIN_ID_LS = "agenda-mt-binid-v3";
+const LOCAL_LS  = "agenda-mt-local-v3";
+
+const TODAY = new Date().toISOString().slice(0, 10);
+
+const INITIAL = [
+  { id:1,  name:"Washington Petrópolis",                           date:"2026-02-27", time:"09:00", local:"QG", confirmed:true },
+  { id:2,  name:"David Valença",                                   date:"2026-02-27", time:"14:00", local:"QG", confirmed:true },
+  { id:3,  name:"Deyvid Motta",                                    date:"2026-02-27", time:"16:00", local:"QG", confirmed:true },
+  { id:4,  name:"Selma Protetora Magé e Angel Jornal Mensageiro",  date:"2026-02-27", time:"17:00", local:"QG", confirmed:true },
+  { id:5,  name:"Valmir",                                          date:"2026-02-27", time:"18:00", local:"QG", confirmed:true },
+  { id:6,  name:"Paulo Ferreira Amigo Rogerinho",                  date:"2026-02-27", time:"19:00", local:"",   confirmed:true },
+  { id:7,  name:"Celinho",                                         date:"2026-02-27", time:"19:30", local:"QG", confirmed:true },
+  { id:8,  name:"Luiza — Antônio Galáctico",                       date:"2026-02-27", time:"20:00", local:"QG", confirmed:true },
+  { id:9,  name:"Reunião de Equipe",                               date:"2026-03-04", time:"09:00", local:"QG", confirmed:true },
+  { id:10, name:"Briefing Imprensa",                               date:"2026-03-04", time:"11:30", local:"QG", confirmed:false },
+  { id:11, name:"Almoço de Trabalho",                              date:"2026-03-04", time:"13:00", local:"",   confirmed:true },
+  { id:12, name:"Visita ao Campo — Norte",                         date:"2026-03-05", time:"08:30", local:"",   confirmed:false },
+  { id:13, name:"Entrevista Rádio Metropolitana",                  date:"2026-03-05", time:"15:00", local:"QG", confirmed:true },
+  { id:14, name:"Reunião com Vereadores",                          date:"2026-03-06", time:"10:00", local:"QG", confirmed:true },
+  { id:15, name:"Evento Social — Inauguração",                     date:"2026-03-06", time:"19:00", local:"",   confirmed:false },
+];
+
+async function binCreate(data) {
+  const r = await fetch("https://api.jsonbin.io/v3/b", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY, "X-Bin-Name": "agenda-marcos-tavares-2026" },
+    body: JSON.stringify({ appointments: data })
+  });
+  if (!r.ok) throw new Error("create failed");
+  return (await r.json()).metadata.id;
+}
+async function binRead(id) {
+  const r = await fetch(`https://api.jsonbin.io/v3/b/${id}/latest`, { headers: { "X-Master-Key": API_KEY } });
+  if (!r.ok) throw new Error("read failed");
+  return (await r.json()).record.appointments || [];
+}
+async function binWrite(id, data) {
+  const r = await fetch(`https://api.jsonbin.io/v3/b/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+    body: JSON.stringify({ appointments: data })
+  });
+  if (!r.ok) throw new Error("write failed");
+}
+
+function App() {
+  const [apts,       setApts]       = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [sync,       setSync]       = useState("loading");
+  const [filterDate, setFilterDate] = useState(TODAY);
+  const [showForm,   setShowForm]   = useState(false);
+  const [editingId,  setEditingId]  = useState(null);
+  const [form,       setForm]       = useState({ name:"", date:TODAY, time:"", local:"QG", confirmed:false });
+  const [toast,      setToast]      = useState(null);
+  const [view,       setView]       = useState("list"); // list | calendar
+  const binId = useRef(null);
+  const timer = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const saved = localStorage.getItem(BIN_ID_LS);
+      try {
+        if (saved) {
+          binId.current = saved;
+          const data = await binRead(saved);
+          setApts(data.length ? data : INITIAL);
+        } else {
+          flash("⏳ Preparando nuvem...", "inf", 5000);
+          const id = await binCreate(INITIAL);
+          localStorage.setItem(BIN_ID_LS, id);
+          binId.current = id;
+          setApts(INITIAL);
+          flash("☁️ Nuvem pronta! Compartilhe o link.", "ok", 4000);
+        }
+        setSync("ok");
+      } catch {
+        const local = localStorage.getItem(LOCAL_LS);
+        setApts(local ? JSON.parse(local) : INITIAL);
+        setSync("err");
+        flash("Modo offline — dados locais", "err");
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const persist = useCallback((data) => {
+    localStorage.setItem(LOCAL_LS, JSON.stringify(data));
+    setApts(data);
+    setSync("loading");
+    clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        await binWrite(binId.current, data);
+        setSync("ok");
+        flash("☁️ Sincronizado", "ok", 1800);
+      } catch {
+        setSync("err");
+        flash("Salvo local — sem internet", "err");
+      }
+    }, 600);
+  }, []);
+
+  function flash(msg, type = "ok", dur = 2500) {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), dur);
+  }
+
+  function openAdd() {
+    setForm({ name:"", date: filterDate || TODAY, time:"", local:"QG", confirmed:false });
+    setEditingId(null);
+    setShowForm(true);
+  }
+  function openEdit(a) {
+    setForm({ name:a.name, date:a.date, time:a.time, local:a.local, confirmed:a.confirmed });
+    setEditingId(a.id);
+    setShowForm(true);
+  }
+  function handleSave() {
+    if (!form.name.trim() || !form.date || !form.time) {
+      flash("Preencha Nome, Data e Horário", "err"); return;
+    }
+    let u = editingId
+      ? apts.map(a => a.id === editingId ? { ...a, ...form } : a)
+      : [...apts, { id: Date.now(), ...form }];
+    u.sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+    persist(u);
+    setShowForm(false);
+  }
+  function handleDelete(id) {
+    if (!confirm("Excluir este compromisso?")) return;
+    persist(apts.filter(a => a.id !== id));
+  }
+  function toggleConfirm(id) {
+    persist(apts.map(a => a.id === id ? { ...a, confirmed: !a.confirmed } : a));
+  }
+
+  function exportICS() {
+    let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Agenda MT 2026//PT\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
+    apts.forEach(a => {
+      const [h, m] = a.time.split(':').map(Number), tot = h*60+m+60;
+      const d = a.date.replace(/-/g,''), t = a.time.replace(':','');
+      const eH = String(Math.floor(tot/60)).padStart(2,'0'), eM = String(tot%60).padStart(2,'0');
+      ics += `BEGIN:VEVENT\r\nUID:${a.id}@agenda-mt\r\nSUMMARY:${a.name}\r\nDTSTART;TZID=America/Sao_Paulo:${d}T${t}00\r\nDTEND;TZID=America/Sao_Paulo:${d}T${eH}${eM}00\r\n${a.local?`LOCATION:${a.local}\r\n`:''}STATUS:${a.confirmed?'CONFIRMED':'TENTATIVE'}\r\nEND:VEVENT\r\n`;
+    });
+    ics += "END:VCALENDAR";
+    const url = URL.createObjectURL(new Blob([ics], { type:'text/calendar;charset=utf-8' }));
+    Object.assign(document.createElement('a'), { href:url, download:'agenda-marcos-tavares.ics' }).click();
+    URL.revokeObjectURL(url);
+  }
+
+  const filtered  = apts.filter(a => !filterDate || a.date === filterDate);
+  const dates     = [...new Set(apts.map(a => a.date))].sort();
+  const confirmed = filtered.filter(a => a.confirmed).length;
+  const fmtDate   = d => { const [,m,day] = d.split('-'); return `${day}/${m}`; };
+  const dayName   = d => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' });
+  const dayNameShort = d => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
+  const syncLabel = { loading:"Sincronizando...", ok:"Sincronizado", err:"Offline" }[sync];
+  const syncCls   = { loading:"loading", ok:"ok", err:"err" }[sync];
+  const isToday   = d => d === TODAY;
+
+  if (loading) return (
+    <div className="loading-screen">
+      <div className="loading-ring" />
+      <div style={{ color:'#9d7ec7', fontSize:13, letterSpacing:2.5, fontFamily:"'DM Sans',sans-serif" }}>CARREGANDO</div>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight:'100vh' }}>
+
+      {/* ── HEADER ── */}
+      <div className="header-section">
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:10 }}>
+          <div>
+            <div style={{ fontSize:10, letterSpacing:4, color:'#6b4fa0', textTransform:'uppercase', marginBottom:5, fontFamily:"'DM Sans',sans-serif" }}>
+              Agenda Compartilhada
+            </div>
+            <h1 style={{ fontSize:22, fontWeight:600, color:'#f0e8ff', letterSpacing:0.5, fontFamily:"'Cormorant Garamond',serif", lineHeight:1.1 }}>
+              Marcos Tavares
+            </h1>
+            <div style={{ fontSize:11, color:'#5c4a75', marginTop:4, letterSpacing:0.3 }}>
+              <span className={`sync-dot ${syncCls}`} />{syncLabel}
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
+            <button onClick={exportICS} className="btn-ghost">⬇ .ICS</button>
+            <button onClick={openAdd} className="btn-primary">+ Novo</button>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        {filterDate && filtered.length > 0 && (
+          <div style={{ marginTop:14, display:'flex', gap:10 }}>
+            <div style={{ background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.2)', borderRadius:10, padding:'8px 14px', flex:1 }}>
+              <div style={{ fontSize:20, fontWeight:700, color:'#c4b5fd', fontFamily:"'Cormorant Garamond',serif" }}>{filtered.length}</div>
+              <div style={{ fontSize:10, color:'#6b4fa0', letterSpacing:1.5, textTransform:'uppercase' }}>Compromissos</div>
+            </div>
+            <div style={{ background:'rgba(74,222,128,0.07)', border:'1px solid rgba(74,222,128,0.15)', borderRadius:10, padding:'8px 14px', flex:1 }}>
+              <div style={{ fontSize:20, fontWeight:700, color:'#4ade80', fontFamily:"'Cormorant Garamond',serif" }}>{confirmed}</div>
+              <div style={{ fontSize:10, color:'#3a7055', letterSpacing:1.5, textTransform:'uppercase' }}>Confirmados</div>
+            </div>
+            <div style={{ background:'rgba(251,191,36,0.07)', border:'1px solid rgba(251,191,36,0.12)', borderRadius:10, padding:'8px 14px', flex:1 }}>
+              <div style={{ fontSize:20, fontWeight:700, color:'#fbbf24', fontFamily:"'Cormorant Garamond',serif" }}>{filtered.length - confirmed}</div>
+              <div style={{ fontSize:10, color:'#7a5c1a', letterSpacing:1.5, textTransform:'uppercase' }}>Pendentes</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── DATE TABS ── */}
+      <div className="tabs-scroll">
+        <button className={`tab-btn ${!filterDate ? 'active' : ''}`} onClick={() => setFilterDate('')}>
+          Todos <span className="count-badge">{apts.length}</span>
+        </button>
+        {dates.map(d => (
+          <button key={d} className={`tab-btn ${filterDate === d ? 'active' : ''}`} onClick={() => setFilterDate(d)}>
+            {isToday(d) ? '● Hoje' : fmtDate(d)} · {dayNameShort(d)}
+            {filterDate !== d && <span className="count-badge">{apts.filter(a=>a.date===d).length}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SECTION LABEL ── */}
+      {filterDate ? (
+        <div className="section-label">
+          {isToday(filterDate) ? 'Hoje · ' : ''}{dayName(filterDate)}, {fmtDate(filterDate)} · {filtered.length} compromisso{filtered.length!==1?'s':''}
+        </div>
+      ) : (
+        <div className="section-label">Todos os compromissos · {apts.length} total</div>
+      )}
+
+      {/* ── LIST ── */}
+      <div style={{ padding:'0 14px 80px', display:'grid', gap:10 }}>
+        {filtered.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">📅</div>
+            <div style={{ fontSize:16, color:'#4a3860', marginBottom:18, fontFamily:"'Cormorant Garamond',serif" }}>
+              Nenhum compromisso para este dia
+            </div>
+            <button onClick={openAdd} style={{ background:'rgba(124,58,237,0.15)', border:'1px solid rgba(124,58,237,0.28)', borderRadius:12, padding:'11px 24px', color:'#c4b5fd', fontSize:14 }}>
+              + Adicionar compromisso
+            </button>
+          </div>
+        )}
+
+        {filtered.map((apt, i) => (
+          <div key={apt.id}
+            className={`apt-card ${apt.confirmed ? 'confirmed' : 'unconfirmed'}`}
+            style={{ animation:`fadeIn 0.3s ease ${Math.min(i,10)*0.04}s both`, gap:14, display:'flex', alignItems:'center' }}>
+
+            {/* Time */}
+            <div style={{ minWidth:48, textAlign:'center', flexShrink:0 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:apt.confirmed?'#c4b5fd':'#4a3860', letterSpacing:0.5, fontFamily:"'Cormorant Garamond',serif" }}>{apt.time}</div>
+              {!filterDate && (
+                <div style={{ fontSize:10, color:'#4a3860', marginTop:2 }}>{fmtDate(apt.date)}</div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="divider" style={{ height:38, background:apt.confirmed?'linear-gradient(to bottom, #7c3aed, #4338ca)':'rgba(255,255,255,0.08)' }} />
+
+            {/* Info */}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{
+                fontSize:14, fontWeight:apt.confirmed?600:400,
+                color:apt.confirmed?'#f0e8ff':'#5a4870',
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                fontFamily:"'DM Sans',sans-serif"
+              }}>{apt.name}</div>
+              <div style={{ display:'flex', gap:8, marginTop:4, alignItems:'center', flexWrap:'wrap' }}>
+                {apt.local && (
+                  <span style={{ fontSize:11, color:'#6b4fa0' }}>📍 {apt.local}</span>
+                )}
+                {!apt.confirmed && (
+                  <span style={{ fontSize:10, color:'#7a5c1a', background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:6, padding:'1px 7px', letterSpacing:0.5 }}>PENDENTE</span>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+              <button className="btn-icon" onClick={() => toggleConfirm(apt.id)}
+                style={{ background:apt.confirmed?'rgba(74,222,128,0.12)':'rgba(255,255,255,0.05)' }}
+                title={apt.confirmed?'Desconfirmar':'Confirmar'}>
+                {apt.confirmed ? '✅' : '⬜'}
+              </button>
+              <button className="btn-icon" onClick={() => openEdit(apt)}
+                style={{ background:'rgba(124,58,237,0.1)' }}>✏️</button>
+              <button className="btn-icon" onClick={() => handleDelete(apt.id)}
+                style={{ background:'rgba(239,68,68,0.08)' }}>🗑️</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── MODAL ── */}
+      {showForm && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="modal-box">
+            <div className="modal-handle" />
+            <h2 style={{ marginBottom:20, fontSize:19, color:'#c4b5fd', fontWeight:600, fontFamily:"'Cormorant Garamond',serif" }}>
+              {editingId ? '✏️ Editar Compromisso' : '➕ Novo Compromisso'}
+            </h2>
+            <div style={{ display:'grid', gap:14 }}>
+              <div>
+                <label className="field-label">Nome / Compromisso</label>
+                <input className="field-input" type="text" value={form.name}
+                  placeholder="Nome ou descrição"
+                  onChange={e => setForm(p => ({...p, name:e.target.value}))}
+                  autoFocus />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <label className="field-label">Data</label>
+                  <input className="field-input" type="date" value={form.date}
+                    onChange={e => setForm(p => ({...p, date:e.target.value}))} />
+                </div>
+                <div>
+                  <label className="field-label">Horário</label>
+                  <input className="field-input" type="time" value={form.time}
+                    onChange={e => setForm(p => ({...p, time:e.target.value}))} />
+                </div>
+              </div>
+              <div>
+                <label className="field-label">Local</label>
+                <input className="field-input" type="text" value={form.local}
+                  placeholder="Ex: QG, Câmara, etc."
+                  onChange={e => setForm(p => ({...p, local:e.target.value}))} />
+              </div>
+              <label className="checkbox-row">
+                <input type="checkbox" checked={form.confirmed}
+                  onChange={e => setForm(p => ({...p, confirmed:e.target.checked}))} />
+                <span style={{ fontSize:14, color:'#c4b5fd' }}>Marcar como confirmado</span>
+              </label>
+            </div>
+            <div style={{ display:'flex', gap:10, marginTop:20 }}>
+              <button onClick={() => setShowForm(false)}
+                style={{ flex:1, padding:'13px', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, color:'#6b4fa0', fontSize:14 }}>
+                Cancelar
+              </button>
+              <button onClick={handleSave}
+                style={{ flex:2, padding:'13px', background:'linear-gradient(135deg,#7c3aed,#4338ca)', border:'none', borderRadius:12, color:'#fff', fontSize:14, fontWeight:600, boxShadow:'0 4px 16px rgba(124,58,237,0.35)' }}>
+                Salvar Compromisso
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ── */}
+      {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
